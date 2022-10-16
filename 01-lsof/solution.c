@@ -76,8 +76,8 @@ void lsof(void)
             link_size = areadlinkat(fd_fd, cur_entry->d_name, &buf);
             if (link_size < 0)
             {
-                char path[512];
-                snprintf(path, 512, "%s/%s", path_buf, cur_entry->d_name);
+                char path[1024];
+                snprintf(path, 1024, "%s/%s", path_buf, cur_entry->d_name);
                 report_error(path, errno);
                 continue;
             }
