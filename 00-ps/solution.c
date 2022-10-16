@@ -115,30 +115,30 @@ void ps(void)
             continue;
 		int dirfd = openat(proc_dirfd, cur_entry->d_name, O_DIRECTORY);
 		if (dirfd < 0) {
-            char path_err[256];
-            snprintf(path_err, 128, "%s/%s", PROC_PATH, cur_entry->d_name);
+            static char path_err[256];
+            snprintf(path_err, 256, "%s/%s", PROC_PATH, cur_entry->d_name);
 			report_error(path_err, errno);
 			continue;
 		}
 		pid_t cur_pid = strtol(cur_entry->d_name, NULL, 10);
 		ssize_t exe_size = check_exe(dirfd, "exe", &exe_buf);
 		if (exe_size < 0) {
-            char path_err[256];
-            snprintf(path_err, 128, "%s/%s/%s", PROC_PATH, cur_entry->d_name, "exe");
+            static char path_err[256];
+            snprintf(path_err, 256, "%s/%s/%s", PROC_PATH, cur_entry->d_name, "exe");
 			report_error(path_err, errno);
 			continue;
 		}
 		ssize_t argv_size = readfile(dirfd, "cmdline", &argv_buf);
 		if (argv_size < 0) {
-            char path_err[256];
-            snprintf(path_err, 128, "%s/%s/%s", PROC_PATH, cur_entry->d_name, "cmdline");
+            static char path_err[256];
+            snprintf(path_err, 256, "%s/%s/%s", PROC_PATH, cur_entry->d_name, "cmdline");
 			report_error(path_err, errno);
 			continue;
 		}
 		ssize_t envp_size = readfile(dirfd, "environ", &envp_buf);
 		if (envp_size < 0) {
-            char path_err[256];
-            snprintf(path_err, 128, "%s/%s/%s", PROC_PATH, cur_entry->d_name, "environ");
+            static char path_err[256];
+            snprintf(path_err, 256, "%s/%s/%s", PROC_PATH, cur_entry->d_name, "environ");
 			report_error(path_err, errno);
 			continue;
 		}
