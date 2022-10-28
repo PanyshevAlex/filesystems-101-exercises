@@ -34,6 +34,8 @@ static void entry_write(int out, struct io_uring *ring, struct io_data *data)
     data->iov.iov_base = data + 1;
     data->iov.iov_len = data->first_len;
     sqe = io_uring_get_sqe(ring);
+    if (!sqe)
+        return;
     io_uring_prep_writev(sqe, out, &data->iov, 1, data->offset);
     io_uring_sqe_set_data(sqe, data);
     io_uring_submit(ring);
@@ -90,12 +92,14 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
         {
             ret = io_uring_submit(ring);
             if (ret < 0)
-                break;
+                return -errno;
         }
 
         while (write_left)
         {
             ret = io_uring_wait_cqe(ring, &cqe);
+            if (ret != 0)
+                return -errno;
             data = io_uring_cqe_get_data(cqe);
 
             if (data->read)
@@ -115,7 +119,9 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
     }
     for (unsigned i = 0; i < write_entries; i++)
     {
-        io_uring_wait_cqe(ring, &cqe);
+        ret = io_uring_wait_cqe(ring, &cqe);
+        if (ret != 0)
+            return -errno;
         data = io_uring_cqe_get_data(cqe);
         if (!data)
             break;
