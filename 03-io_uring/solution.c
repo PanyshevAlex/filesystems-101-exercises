@@ -26,7 +26,7 @@ static int file_size(int fd, off_t *size)
     return 0;
 }
 
-static void entry_write(int out, struct io_uring *ring, struct io_data *data)
+static int entry_write(int out, struct io_uring *ring, struct io_data *data)
 {
     struct io_uring_sqe *sqe;
     data->read = 0;
@@ -35,10 +35,12 @@ static void entry_write(int out, struct io_uring *ring, struct io_data *data)
     data->iov.iov_len = data->first_len;
     sqe = io_uring_get_sqe(ring);
     if (!sqe)
-        return;
+        return -errno;
     io_uring_prep_writev(sqe, out, &data->iov, 1, data->offset);
     io_uring_sqe_set_data(sqe, data);
-    io_uring_submit(ring);
+    if (io_uring_submit(ring) < 0)
+        return -errno;
+    return 0;
 }
 
 static int entry_read(int in, struct io_uring *ring, off_t size, off_t offset)
@@ -104,7 +106,9 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
 
             if (data->read)
             {
-                entry_write(out, ring, data);
+                ret = entry_write(out, ring, data);
+                if (ret != 0)
+                    return ret;
                 write_left -= data->first_len;
                 read_entries--;
                 write_entries++;
