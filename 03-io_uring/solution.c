@@ -45,6 +45,11 @@ static int entry_read(int in, struct io_uring *ring, off_t size, off_t offset)
     struct io_data *data;
     data = malloc(size + sizeof(*data));
     sqe = io_uring_get_sqe(ring);
+    if (!sqe)
+    {
+        free(data);
+        return 1;
+    }
     data->read = 1;
     data->offset = data->first_offset = offset;
     data->iov.iov_base = data + 1;
@@ -61,6 +66,7 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
     struct io_uring_cqe *cqe;
     off_t write_left, offset;
     int ret;
+    struct io_data *data;
     write_left = in_size;
     read_entries = write_entries = offset = 0;
     while (in_size || write_left)
@@ -89,8 +95,6 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
 
         while (write_left)
         {
-            struct io_data *data;
-
             ret = io_uring_wait_cqe(ring, &cqe);
             if (ret != 0)
                 return -errno;
@@ -113,7 +117,15 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
             io_uring_cqe_seen(ring, cqe);    
         }
     }
-    io_uring_wait_cqe(ring, &cqe);
+    for (unsigned i = 0; i < write_entries; i++)
+    {
+        io_uring_wait_cqe(ring, &cqe);
+        data = io_uring_cqe_get_data(cqe);
+        if (!data)
+            break;
+        free(data);
+        io_uring_cqe_seen(ring, cqe);
+    }
     return 0;
 }
 
