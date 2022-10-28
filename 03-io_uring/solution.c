@@ -96,10 +96,6 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
         while (write_left)
         {
             ret = io_uring_wait_cqe(ring, &cqe);
-            if (ret != 0)
-                return -errno;
-
-
             data = io_uring_cqe_get_data(cqe);
 
             if (data->read)
