@@ -71,10 +71,13 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
     off_t write_left, offset;
     int ret;
     struct io_data *data;
+    int write_left_block;
     write_left = in_size;
     read_entries = write_entries = offset = 0;
+    
     while (in_size || write_left)
     {
+        write_left_block = 0;
         unsigned read_check = read_entries;
         for (int i = 0; i < QUEUE_READ_SIZE; i++)
         {
@@ -85,6 +88,7 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
                 break;
             if (entry_read(in, ring, size, offset))
                 break;
+            write_left_block += size;
             in_size -= size;
             offset += size;
             read_entries++;
@@ -97,7 +101,7 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
                 return -errno;
         }
 
-        while (write_left)
+        while (write_left_block)
         {
             ret = io_uring_wait_cqe(ring, &cqe);
             if (ret != 0)
@@ -110,6 +114,7 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
                 if (ret != 0)
                     return ret;
                 write_left -= data->first_len;
+                write_left_block -= data->first_len;
                 read_entries--;
                 write_entries++;
             }
@@ -120,17 +125,18 @@ static int copy_file(int in, int out, struct io_uring *ring, off_t in_size)
             }
             io_uring_cqe_seen(ring, cqe);    
         }
-    }
-    for (unsigned i = 0; i < write_entries; i++)
-    {
-        ret = io_uring_wait_cqe(ring, &cqe);
-        if (ret != 0)
-            return -errno;
-        data = io_uring_cqe_get_data(cqe);
-        if (!data)
-            break;
-        free(data);
-        io_uring_cqe_seen(ring, cqe);
+        for (unsigned i = 0; i < write_entries; i++)
+        {
+            ret = io_uring_wait_cqe(ring, &cqe);
+            if (ret != 0)
+                return -errno;
+            data = io_uring_cqe_get_data(cqe);
+            if (!data)
+                break;
+            free(data);
+            io_uring_cqe_seen(ring, cqe);
+        }
+        write_entries = 0;
     }
     return 0;
 }
