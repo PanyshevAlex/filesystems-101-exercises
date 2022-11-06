@@ -21,7 +21,7 @@ int read_copy(int img, unsigned number_block, unsigned block_size, char* block_b
 	else
 	{
 		unsigned write_count = write(out, block_buf, *curr_size);
-		if (write_count != curr_size)
+		if (write_count != *curr_size)
 			return -errno;
 		*curr_size = 0;
 	}
