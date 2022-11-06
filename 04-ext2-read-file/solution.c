@@ -13,14 +13,14 @@ int read_copy(int img, unsigned number_block, unsigned block_size, char* block_b
 
 	if (*curr_size > block_size)
 	{
-		int write_count = write(out, block_buf, block_size);
+		unsigned write_count = write(out, block_buf, block_size);
 		if (write_count != block_size)
 			return -errno;
 		*curr_size -= block_size;
 	}
 	else
 	{
-		int write_count = write(out, block_buf, *curr_size);
+		unsigned write_count = write(out, block_buf, *curr_size);
 		if (write_count != curr_size)
 			return -errno;
 		*curr_size = 0;
