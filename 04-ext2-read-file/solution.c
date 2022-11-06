@@ -13,13 +13,15 @@ int read_copy(int img, unsigned number_block, unsigned block_size, char* block_b
 
 	if (*curr_size > block_size)
 	{
-		if (write(out, block_buf, block_size) != block_size)
+		int write_count = write(out, block_buf, block_size);
+		if (write_count != block_size)
 			return -errno;
 		*curr_size -= block_size;
 	}
 	else
 	{
-		if (write(out, block_buf, *curr_size) != curr_size)
+		int write_count = write(out, block_buf, *curr_size);
+		if (write_count != curr_size)
 			return -errno;
 		*curr_size = 0;
 	}
@@ -47,7 +49,7 @@ int read_copy_indirect(int img, unsigned number_block, unsigned block_size, char
 		if (indirect_block.idArray[j] == 0)
 			break;
 		
-		res = read_copy(img, indirect_block.idArray[j], block_size, block_buf_ind, out, curr_size);
+		int res = read_copy(img, indirect_block.idArray[j], block_size, block_buf_ind, out, curr_size);
 		if (res < 0)
 			return -errno;
 	}
@@ -76,7 +78,7 @@ int read_copy_double_indirect(int img, unsigned number_block, unsigned block_siz
 		if (indirect_block.idArray[j] == 0)
 			break; 
 		
-		res = read_copy_indirect(img, indirect_block.idArray[j], block_size, block_buf_ind, out, curr_size);
+		int res = read_copy_indirect(img, indirect_block.idArray[j], block_size, block_buf_ind, out, curr_size);
 		if (res < 0)
 			return -errno;
 	}
@@ -94,7 +96,7 @@ int copy_file(int img, unsigned block_size, struct ext2_inode* inode, int out)
 	{
 		if (inode->i_block[i] == 0)
 			break; 
-
+		int res;
 		if (i < EXT2_NDIR_BLOCKS)
 		{
 			res = read_copy(img, inode->i_block[i], block_size, block_buf, out, &curr_size);
@@ -141,17 +143,17 @@ int dump_file(int img, int inode_nr, int out)
 	unsigned bg_number = (inode_nr - 1) / sb.s_inodes_per_group;
 	unsigned index = (inode_nr - 1) % sb.s_inodes_per_group;
 
-	ssize_t read_size = pread(img, &group_desc, sizeof(group_desc), ((block_size > 1024) ? 1 : 2) * block_size + bg_number * sizeof(struct ext2_group_desc));
+	read_size = pread(img, &group_desc, sizeof(group_desc), ((block_size > 1024) ? 1 : 2) * block_size + bg_number * sizeof(struct ext2_group_desc));
 	if (read_size < 0)
 		return -errno;
 
 
 
-	ssize_t read_size = pread(img, &inode, sizeof(inode), group_desc->bg_inode_table * block_size + index * sb.s_inode_size);
+	read_size = pread(img, &inode, sizeof(inode), group_desc.bg_inode_table * block_size + index * sb.s_inode_size);
 	if (read_size < 0)
 		return -errno;
 
-	res = copy_file(img, block_size, &inode, out);
+	int res = copy_file(img, block_size, &inode, out);
 	if (res < 0)
 			return -errno;
 	return 0;
