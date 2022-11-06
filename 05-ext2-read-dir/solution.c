@@ -138,7 +138,7 @@ int read_dir(int img, unsigned block_size, const struct ext2_inode *inode)
 	return 0;
 }
 
-int dump_file(int img, int inode_nr)
+int dump_dir(int img, int inode_nr)
 {
 	struct ext2_super_block sb = {};
 	struct ext2_group_desc group_desc = {};
