@@ -244,6 +244,7 @@ int dump_file(int img, const char *path, int out)
 		return -errno;
 	char* path_tmp = strdup(path);
 	int inode_number = get_inode_by_path(img, 2, path_tmp+1, &sb);
+	free(path_tmp);
 	// int inode_number = 2;
 	if (inode_number < 0)
 		return inode_number;
