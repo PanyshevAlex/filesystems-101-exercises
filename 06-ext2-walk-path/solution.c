@@ -229,6 +229,8 @@ int get_inode_by_path(int fd, int inode_number, char* path, const struct ext2_su
 	read_size = pread(fd, &inode, sizeof(inode), block_size * group_desc.bg_inode_table + (inode_number - 1) % sb->s_inodes_per_group * sb->s_inode_size);
 	if (read_size < 0)
 		return -errno;
+	if ((inode.i_mode & LINUX_S_IFDIR) == 0)
+		return -ENOTDIR;
 	char* next_path = strchr(path, '/');
 	if (next_path != NULL)
 	{
