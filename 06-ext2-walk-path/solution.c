@@ -185,7 +185,10 @@ int get_inode(int fd, const char* name, size_t block_size, const struct ext2_ino
 	{
 		read_size = pread(fd, buf, block_size, block_size * inode->i_block[i]);
 		if (read_size < 0)
+		{
+			free(buf);
 			return -errno;
+		}
 		inode_number = get_d_block(buf, name, block_size);
 
 		if (inode_number != 0) 
@@ -197,13 +200,18 @@ int get_inode(int fd, const char* name, size_t block_size, const struct ext2_ino
 	if (inode->i_block[EXT2_IND_BLOCK] != 0) 
 	{
 		read_size = pread(fd, buf, block_size, block_size * inode->i_block[EXT2_IND_BLOCK]);
-
+		if (read_size < 0)
+		{
+			free(buf);
+			return -errno;
+		}
 		if ((inode_number = get_id_block(fd, (unsigned*)buf, name, block_size)) != 0) 
 		{
 			free(buf);
 			return inode_number;
 		}
 	}
+	free(buf);
 	return -ENOENT;
 }
 
