@@ -235,6 +235,8 @@ int get_inode_by_path(int fd, int inode_number, char* path, const struct ext2_su
 			return -ENOTDIR;
 		*(next_path++) = '\0';
 		int next_nr = get_inode(fd, path, block_size, &inode);
+		if (next_nr < 0)
+			return -ENOTDIR;
 		return get_inode_by_path(fd, next_nr, next_path, sb);
 	}
 	else
