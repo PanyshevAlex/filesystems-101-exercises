@@ -142,7 +142,7 @@ int get_d_block(const char* buf, const char* name, size_t block_size, int type)
 			continue;
 		} 
 		unsigned name_len = (unsigned)ext2fs_dirent_name_len(entry);
-		if (strncmp(name, entry->name, name_len) == 0)
+		if (name_len == strlen(name))
 		{
 			if (strncmp(name, entry->name, name_len) == 0)
 			{
@@ -271,13 +271,10 @@ int get_inode_by_path(int fd, int inode_number, char* path, const struct ext2_su
 
 	pread(fd, &inode, sizeof(inode), block_size * group_desc.bg_inode_table + (inode_number - 1) % sb->s_inodes_per_group * sb->s_inode_size);
 
-	if ((inode_number == 2) && !S_ISDIR(inode.i_mode))
-		return -ENOTDIR;
 	char* next_path = strchr(path, '/');
 	if (next_path != NULL)
 	{
-		if (!S_ISDIR(inode.i_mode))
-			return -ENOTDIR;
+
 		*(next_path++) = '\0';
 		int next_nr = get_inode(fd, path, block_size, &inode, EXT2_FT_DIR);
 		if (next_nr < 0)
