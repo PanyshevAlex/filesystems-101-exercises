@@ -182,6 +182,30 @@ int get_id_block(int fd, const unsigned* indir_block, const char* name, size_t b
 	return 0;
 }
 
+int get_did_block(int fd, const unsigned* dindir_block, const char* name, size_t block_size, int type)
+{
+	ssize_t read_size;
+	char *buf = (char*)malloc(block_size);
+	int inode_number;
+	for (unsigned i = 0; i < block_size / sizeof(unsigned); i++) 
+	{
+		if (dindir_block[i] == 0) 
+		{
+			free(buf);
+			return 0;
+		}
+		read_size = pread(fd, buf, block_size, block_size * dindir_block[i]);
+		if (read_size < 0)
+			return -errno;
+		if ((inode_number = get_id_block(fd, buf, name, block_size, type)) != 0) 
+		{
+			free(buf);
+			return inode_number;
+		}
+	}
+	free(buf);
+	return 0;
+}
 
 int get_inode(int fd, const char* name, size_t block_size, const struct ext2_inode* inode, int type)
 {
@@ -213,6 +237,20 @@ int get_inode(int fd, const char* name, size_t block_size, const struct ext2_ino
 			return -errno;
 		}
 		if ((inode_number = get_id_block(fd, (unsigned*)buf, name, block_size, type)) != 0) 
+		{
+			free(buf);
+			return inode_number;
+		}
+	}
+	if (inode->i_block[EXT2_DIND_BLOCK] != 0) 
+	{
+		read_size = pread(fd, buf, block_size, block_size * inode->i_block[EXT2_DIND_BLOCK]);
+		if (read_size < 0)
+		{
+			free(buf);
+			return -errno;
+		}
+		if ((inode_number = get_did_block(fd, (unsigned*)buf, name, block_size, type)) != 0) 
 		{
 			free(buf);
 			return inode_number;
