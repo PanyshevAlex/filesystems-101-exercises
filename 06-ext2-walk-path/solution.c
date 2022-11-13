@@ -128,7 +128,7 @@ int copy_file(int img, unsigned block_size, struct ext2_inode* inode, int out)
 	return 0;
 }
 
-int get_d_block(const char* buf, const char* name, size_t block_size)
+int get_d_block(const char* buf, const char* name, size_t block_size, int type)
 {
 	size_t offset = 0;
 	while (offset - EXT2_NAME_LEN + sizeof(struct ext2_dir_entry) < block_size) 
@@ -143,14 +143,21 @@ int get_d_block(const char* buf, const char* name, size_t block_size)
 		} 
 		unsigned name_len = (unsigned)ext2fs_dirent_name_len(entry);
 		if (strncmp(name, entry->name, name_len) == 0)
-			return entry->inode;
-
+		{
+			if (strncmp(name, entry->name, name_len) == 0)
+			{
+				if ((type == EXT2_FT_DIR) && (type != ext2fs_dirent_file_type(entry)))
+					return -ENOTDIR;
+				else 
+					return entry->inode;
+			}
+		}
 		offset += entry->rec_len;
 	}
 	return 0;
 }
 
-int get_id_block(int fd, const unsigned* indir_block, const char* name, size_t block_size)
+int get_id_block(int fd, const unsigned* indir_block, const char* name, size_t block_size, int type)
 {
 	ssize_t read_size;
 	char *buf = (char*)malloc(block_size);
@@ -165,7 +172,7 @@ int get_id_block(int fd, const unsigned* indir_block, const char* name, size_t b
 		read_size = pread(fd, buf, block_size, block_size * indir_block[i]);
 		if (read_size < 0)
 			return -errno;
-		if ((inode_number = get_d_block(buf, name, block_size)) != 0) 
+		if ((inode_number = get_d_block(buf, name, block_size, type)) != 0) 
 		{
 			free(buf);
 			return inode_number;
@@ -176,7 +183,7 @@ int get_id_block(int fd, const unsigned* indir_block, const char* name, size_t b
 }
 
 
-int get_inode(int fd, const char* name, size_t block_size, const struct ext2_inode* inode)
+int get_inode(int fd, const char* name, size_t block_size, const struct ext2_inode* inode, int type)
 {
 	ssize_t read_size;
 	char* buf = malloc(block_size);
@@ -189,7 +196,7 @@ int get_inode(int fd, const char* name, size_t block_size, const struct ext2_ino
 			free(buf);
 			return -errno;
 		}
-		inode_number = get_d_block(buf, name, block_size);
+		inode_number = get_d_block(buf, name, block_size, type);
 
 		if (inode_number != 0) 
 		{
@@ -205,7 +212,7 @@ int get_inode(int fd, const char* name, size_t block_size, const struct ext2_ino
 			free(buf);
 			return -errno;
 		}
-		if ((inode_number = get_id_block(fd, (unsigned*)buf, name, block_size)) != 0) 
+		if ((inode_number = get_id_block(fd, (unsigned*)buf, name, block_size, type)) != 0) 
 		{
 			free(buf);
 			return inode_number;
@@ -234,12 +241,13 @@ int get_inode_by_path(int fd, int inode_number, char* path, const struct ext2_su
 		if (!S_ISDIR(inode.i_mode))
 			return -ENOTDIR;
 		*(next_path++) = '\0';
-		int next_nr = get_inode(fd, path, block_size, &inode);
-
+		int next_nr = get_inode(fd, path, block_size, &inode, EXT2_FT_DIR);
+		if (next_nr < 0)
+			return next_nr;
 		return get_inode_by_path(fd, next_nr, next_path, sb);
 	}
 	else
-		return get_inode(fd, path, block_size, &inode);
+		return get_inode(fd, path, block_size, &inode, EXT2_FT_UNKNOWN);
 }
 
 int dump_file(int img, const char *path, int out)
