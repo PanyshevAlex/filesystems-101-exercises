@@ -185,7 +185,7 @@ int get_id_block(int fd, const unsigned* indir_block, const char* name, size_t b
 int get_did_block(int fd, const unsigned* dindir_block, const char* name, size_t block_size, int type)
 {
 	ssize_t read_size;
-	char *buf = (char*)malloc(block_size);
+	unsigned *buf = (char*)malloc(block_size);
 	int inode_number;
 	for (unsigned i = 0; i < block_size / sizeof(unsigned); i++) 
 	{
