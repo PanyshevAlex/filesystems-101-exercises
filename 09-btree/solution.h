@@ -22,6 +22,8 @@ void btree_delete(struct btree *t, int x);
 /* Test whether @t contains @x, or not. */
 bool btree_contains(struct btree *t, int x);
 
+
+void print_tree(struct btree *t);
 /**
    Implement iteration over all values contained in a B-tree.
    Iterating over a B-tree must return all values in it, sorted
