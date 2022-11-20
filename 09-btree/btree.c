@@ -135,8 +135,6 @@ static int btree_split_child(int t, struct btree_node *parent, int idx, struct b
 
 void btree_insert(struct btree *t, int x)
 {
-    int *val = malloc(sizeof(int));
-    *val = x;
     struct btree_node *child = NULL, *node = t->root;
 	int tmd = t->min_degree, idx;
 
@@ -148,12 +146,11 @@ void btree_insert(struct btree *t, int x)
 		if (btree_split_child(tmd, child, 0, child->subs[0]) < 0)
 			return;
 	}
-
 	for (;;) {
-		if (btree_node_search(node->vals, node->size, val, &idx))
+		if (btree_node_search(node->vals, node->size, &x, &idx))
 			return;
 		if (ISLEAF(node)) {
-			ARRAY_INSERT(node->vals, idx, node->size, *val);
+			ARRAY_INSERT(node->vals, idx, node->size, x);
 			node->size++;
 			break;
 		}
@@ -161,7 +158,7 @@ void btree_insert(struct btree *t, int x)
 		if ((int)node->subs[idx]->size == (2 * tmd - 1)) {
 			if (btree_split_child(tmd, node, idx, node->subs[idx]) < 0)
 				return;
-			if (TYPE_CMP(val, node->vals + idx) > 0)
+			if (TYPE_CMP(&x, node->vals + idx) > 0)
 				idx++;
 		}
 
