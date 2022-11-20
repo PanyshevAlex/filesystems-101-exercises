@@ -50,8 +50,8 @@ struct btree* btree_alloc(unsigned int L)
     struct btree *btree = calloc(1, sizeof(struct btree));
     if (btree) 
     {
-        btree->min_degree = L;
-        btree->root = btree_node_create(L, 1);
+        btree->min_degree = L+1;
+        btree->root = btree_node_create(btree->min_degree, 1);
     }
     return btree;
 }
