@@ -102,7 +102,7 @@ int read_copy_double_indirect(int img, unsigned number_block, unsigned block_siz
 int copy_file(int img, unsigned block_size, struct ext2_inode* inode, struct readbuf *read_buf, size_t size)
 {
 	char* block_buf = (char*) malloc(block_size);
-	unsigned curr_size = inode->i_size;
+	unsigned curr_size = size;
 	
 	for (unsigned i = 0; i < EXT2_N_BLOCKS && curr_size > 0; ++i)
 	{
