@@ -17,23 +17,39 @@ struct readbuf
 	int offset;
 };
 
-int read_copy(int img, unsigned number_block, unsigned block_size, char* block_buf, struct readbuf *read_buf, unsigned* curr_size)
+int read_copy(int img, unsigned number_block, unsigned block_size, char* block_buf, struct readbuf *read_buf, unsigned* curr_size, off_t start_offset)
 {
-	ssize_t read_size = pread(img, block_buf, block_size, number_block *  block_size);
+	ssize_t read_size;
+	if (start_offset > (read_buf->offset+block_size))
+	{
+		read_buf->offset += block_size;
+		return 0;
+	}
+	if (start_offset > read_buf->offset)
+	{
+		read_size = pread(img, block_buf, block_size-start_offset%block_size, number_block *  block_size+start_offset%block_size);
+		if (read_size < 0)
+			return -1;
+		memcpy(read_buf->buf, block_buf, block_size-start_offset%block_size);
+		read_buf->offset += block_size;
+		curr_size -= block_size - start_offset%block_size;
+		return 0;
+	}
+	read_size = pread(img, block_buf, block_size, number_block *  block_size);
 	if (read_size < 0)
 		return -1;
 
 	if (*curr_size > block_size)
 	{
 		// unsigned write_count = write(out, block_buf, block_size);
-		memcpy(read_buf->buf+read_buf->offset, block_buf, block_size);
+		memcpy(read_buf->buf+read_buf->offset-start_offset, block_buf, block_size);
 		read_buf->offset += block_size;
 		*curr_size -= block_size;
 	}
 	else
 	{
 		// unsigned write_count = write(out, block_buf, *curr_size);
-		memcpy(read_buf->buf+read_buf->offset, block_buf, *curr_size);
+		memcpy(read_buf->buf+read_buf->offset-start_offset, block_buf, *curr_size);
 		read_buf->offset += *curr_size;
 		*curr_size = 0;
 	}
@@ -41,7 +57,7 @@ int read_copy(int img, unsigned number_block, unsigned block_size, char* block_b
 	return 0;
 }
 
-int read_copy_indirect(int img, unsigned number_block, unsigned block_size, char* block_buf, struct readbuf *read_buf, unsigned* curr_size)
+int read_copy_indirect(int img, unsigned number_block, unsigned block_size, char* block_buf, struct readbuf *read_buf, unsigned* curr_size, off_t start_offset)
 {
 	ssize_t read_size = pread(img, block_buf, block_size, number_block *  block_size);
 	if (read_size < 0)
@@ -61,7 +77,8 @@ int read_copy_indirect(int img, unsigned number_block, unsigned block_size, char
 		if (indirect_block.idArray[j] == 0)
 			break;
 		
-		int res = read_copy(img, indirect_block.idArray[j], block_size, block_buf_ind, read_buf, curr_size);
+		int res = read_copy(img, indirect_block.idArray[j], block_size, block_buf_ind, read_buf, curr_size, start_offset);
+		printf("read_copy: %d\n", indirect_block.idArray[j]);
 		if (res < 0)
 			return -errno;
 	}
@@ -70,7 +87,7 @@ int read_copy_indirect(int img, unsigned number_block, unsigned block_size, char
 	return 0;
 }
 
-int read_copy_double_indirect(int img, unsigned number_block, unsigned block_size, char* block_buf, struct readbuf *read_buf, unsigned* curr_size)
+int read_copy_double_indirect(int img, unsigned number_block, unsigned block_size, char* block_buf, struct readbuf *read_buf, unsigned* curr_size, off_t start_offset)
 {
 	ssize_t read_size = pread(img, block_buf, block_size, number_block *  block_size);
 	if (read_size < 0)
@@ -90,7 +107,8 @@ int read_copy_double_indirect(int img, unsigned number_block, unsigned block_siz
 		if (indirect_block.idArray[j] == 0)
 			break; 
 		
-		int res = read_copy_indirect(img, indirect_block.idArray[j], block_size, block_buf_ind, read_buf, curr_size);
+		int res = read_copy_indirect(img, indirect_block.idArray[j], block_size, block_buf_ind, read_buf, curr_size, start_offset);
+		printf("read_copy_indirect second: %d\n", indirect_block.idArray[j]);
 		if (res < 0)
 			return -errno;
 	}
@@ -99,11 +117,11 @@ int read_copy_double_indirect(int img, unsigned number_block, unsigned block_siz
 	return 0;
 }
 
-int copy_file(int img, unsigned block_size, struct ext2_inode* inode, struct readbuf *read_buf, size_t size)
+int copy_file(int img, unsigned block_size, struct ext2_inode* inode, struct readbuf *read_buf, size_t size, off_t start_offset)
 {
 	char* block_buf = (char*) malloc(block_size);
 	unsigned curr_size = size;
-	
+
 	for (unsigned i = 0; i < EXT2_N_BLOCKS && curr_size > 0; ++i)
 	{
 		if (inode->i_block[i] == 0)
@@ -111,19 +129,22 @@ int copy_file(int img, unsigned block_size, struct ext2_inode* inode, struct rea
 		int res;
 		if (i < EXT2_NDIR_BLOCKS)
 		{
-			res = read_copy(img, inode->i_block[i], block_size, block_buf, read_buf, &curr_size);
+			res = read_copy(img, inode->i_block[i], block_size, block_buf, read_buf, &curr_size, start_offset);
+			printf("read_copy: %d\n", inode->i_block[i]);
 			if (res < 0)
 				return -errno;
 		}
 		else if (i == EXT2_IND_BLOCK)
 		{
-			res = read_copy_indirect(img, inode->i_block[i], block_size, block_buf, read_buf, &curr_size);
+			res = read_copy_indirect(img, inode->i_block[i], block_size, block_buf, read_buf, &curr_size, start_offset);
+			printf("read_copy_indirect first: %d\n", inode->i_block[i]);
 			if (res < 0)
 				return -errno;
 		}
 		else if (i == EXT2_DIND_BLOCK)
 		{
-			res = read_copy_double_indirect(img, inode->i_block[i], block_size, block_buf, read_buf, &curr_size);
+			res = read_copy_double_indirect(img, inode->i_block[i], block_size, block_buf, read_buf, &curr_size, start_offset);
+			printf("read_copy_double_indirect: %d\n", inode->i_block[i]);
 			if (res < 0)
 				return -errno;
 		}
@@ -501,7 +522,7 @@ static int read_ext2(const char *path, char *buf, size_t size, off_t offset, str
 	read_buf.offset = 0;
 	read_buf.buf = buf;
 	free(path_tmp);
-	return copy_file(g_img, g_block_size, &inode, &read_buf, size);
+	return copy_file(g_img, g_block_size, &inode, &read_buf, size, offset);
 }
 
 static int readdir_ext2(const char *path, void *buf, fuse_fill_dir_t fill, off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
