@@ -5,8 +5,9 @@ import (
 
     "github.com/pkg/errors"
     "golang.org/x/sync/semaphore"
-
-    "crypto/sha256"
+    "google.golang.org/grpc"
+	"fs101ex/pkg/workgroup"
+    "log"
     "net"
     "sync"
     hashpb "fs101ex/pkg/gen/hashsvc"
@@ -74,7 +75,7 @@ func (s *Server) Start(ctx context.Context) (err error) {
     }
 
     srv := grpc.NewServer()
-    hashpb.RegisterParallelHashSvcServer(srv, s)
+    parhashpb.RegisterParallelHashSvcServer(srv, s)
 
     s.wg.Add(2)
     go func() {
@@ -103,7 +104,7 @@ func (s *Server) Stop() {
     s.wg.Wait()
 }
 
-func (s *Server) ParallelHash(ctx context.Context, req *parhashpb.parhashpb.ParHashReq) (resp *parhashpb.ParHashResp, err error) {
+func (s *Server) ParallelHash(ctx context.Context, req *parhashpb.ParHashReq) (resp *parhashpb.ParHashResp, err error) {
 
     client := make([]hashpb.HashSvcClient, len(s.conf.BackendAddrs))
     wg := workgroup.New(workgroup.Config{Sem: s.sem})
@@ -138,7 +139,7 @@ func (s *Server) ParallelHash(ctx context.Context, req *parhashpb.parhashpb.ParH
         })
     }
 
-    err := wg.Wait()
+    err = wg.Wait()
     if err != nil {
         log.Fatalf("Error: can't hash given data with error %v", err)
     }
